@@ -7,7 +7,6 @@ import client from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import UserListModal from '../../components/UserListModal';
 import RequestsModal from '../../components/RequestsModal';
-import SosContactModal from './_components/SosContactModal';
 
 export default function RoomLobby() {
     const router = useRouter();
@@ -25,9 +24,6 @@ export default function RoomLobby() {
 
     // Polling Ref
     const pollingRef = useRef(null);
-    const [showContactModal, setShowContactModal] = useState(false);
-    const [tempContacts, setTempContacts] = useState(null);
-    const [pendingAction, setPendingAction] = useState(null);
 
     useEffect(() => {
         fetchRoom();
@@ -93,9 +89,7 @@ export default function RoomLobby() {
                     params: {
                         trailId: data.trekId,
                         mode: 'group',
-                        role: role, // Use current role
-                        leaderId: data.leader?._id,
-                        emergencyContacts: tempContacts ? JSON.stringify(tempContacts) : null
+                        leaderId: data.leaderId?._id
                     }
                 });
             }
@@ -166,22 +160,13 @@ export default function RoomLobby() {
             return;
         }
 
-        const me = room.members.find(m => m.user._id === currentUser._id);
-        if (!me) return;
-
-        if (!me.isReady) {
-            setPendingAction('ready');
-            setShowContactModal(true);
-        } else {
-            executeToggleReady(false);
-        }
-    };
-
-    const executeToggleReady = async (isReady) => {
         try {
+            const me = room.members.find(m => m.user._id === currentUser._id);
+            if (!me) return;
+
             await client.post('/rooms/ready', {
                 roomId,
-                isReady
+                isReady: !me.isReady
             });
             fetchRoom();
         } catch (error) {
@@ -190,19 +175,14 @@ export default function RoomLobby() {
     };
 
     const handleStartTrail = async () => {
-        const allReady = room.members.every(m => m.isReady);
-        if (!allReady) {
-            Alert.alert("Wait!", "Not all members are ready.");
-            return;
-        }
-
-        setPendingAction('start');
-        setShowContactModal(true);
-    };
-
-    const executeStartTrail = async (selectedContacts) => {
         try {
-            const res = await client.post('/rooms/start', { roomId, emergencyContacts: selectedContacts });
+            const allReady = room.members.every(m => m.isReady);
+            if (!allReady) {
+                Alert.alert("Wait!", "Not all members are ready.");
+                return;
+            }
+
+            const res = await client.post('/rooms/start', { roomId });
             const { trekId } = res.data;
 
             if (pollingRef.current) clearInterval(pollingRef.current);
@@ -211,24 +191,12 @@ export default function RoomLobby() {
                 params: {
                     trailId: trekId,
                     mode: 'group',
-                    role: 'leader',
-                    leaderId: currentUser?._id,
-                    emergencyContacts: JSON.stringify(selectedContacts)
+                    leaderId: room.leaderId?._id
                 }
             });
         } catch (error) {
             console.error(error);
             Alert.alert("Error", error.response?.data?.message || "Failed to start trail");
-        }
-    };
-
-    const onConfirmContacts = (selectedContacts) => {
-        setTempContacts(selectedContacts);
-        setShowContactModal(false);
-        if (pendingAction === 'start') {
-            executeStartTrail(selectedContacts);
-        } else if (pendingAction === 'ready') {
-            executeToggleReady(true);
         }
     };
 
@@ -287,7 +255,7 @@ export default function RoomLobby() {
         );
     }
 
-    const isLeader = role === 'leader';
+    const isLeader = room?.leaderId?._id === currentUser?._id;
     // Safely check if currentUser exists
     const me = (currentUser && room?.members) ? room.members.find(m => m.user?._id === currentUser._id) : null;
     const isMember = !!me;
@@ -307,7 +275,7 @@ export default function RoomLobby() {
                     <View style={styles.waitingCard}>
                         <Ionicons name="hourglass-outline" size={60} color="#007bff" />
                         <Text style={styles.waitingTitle}>Waiting for Approval</Text>
-                        <Text style={styles.waitingDesc}>We&apos;ve sent your request to {room?.leader?.username || "the leader"}. You&apos;ll join the room once they accept.</Text>
+                        <Text style={styles.waitingDesc}>We&apos;ve sent your request to {room?.leaderId?.username || "the leader"}. You&apos;ll join the room once they accept.</Text>
                         <ActivityIndicator size="large" color="#007bff" style={{ marginVertical: 20 }} />
 
                         {joinCooldown > 0 ? (
@@ -368,10 +336,15 @@ export default function RoomLobby() {
                                 <Image source={{ uri: item.user?.profileImage || 'https://via.placeholder.com/150' }} style={styles.avatar} />
                                 <View>
                                     <Text style={styles.username}>
-                                        {item.user?.username || 'Unknown'} {item.user?._id === room.leader?._id && <Text style={{ color: '#fcc419' }}> (Leader)</Text>}
+                                        {item.user?.username || 'Unknown'} 
+                                        {item.user?._id === room.leaderId?._id && (
+                                            <Text style={{ color: '#fcc419' }}> 
+                                                {item.user?._id === currentUser?._id ? " (You are Leader)" : " (Leader)"}
+                                            </Text>
+                                        )}
                                     </Text>
                                     <Text style={[styles.statusText, item.isReady ? styles.statusReady : styles.statusNot]}>
-                                        {item.isReady ? "READY" : "WAITING"}
+                                        {item.isReady ? "READY" : "NOT READY"}
                                     </Text>
                                 </View>
                             </View>
@@ -394,11 +367,11 @@ export default function RoomLobby() {
                 )}
                 {!isLeader && isMember && (
                     <TouchableOpacity
-                        style={[styles.mainButton, me.isReady ? styles.readyBtn : styles.notReadyBtn]}
+                        style={[styles.mainButton, me.isReady ? styles.notReadyBtn : styles.readyBtn]}
                         onPress={handleToggleReady}
                     >
                         <Text style={styles.mainButtonText}>
-                            {me.isReady ? "READY" : "NOT READY"}
+                            {me.isReady ? "NOT READY" : "READY"}
                         </Text>
                     </TouchableOpacity>
                 )}
@@ -438,13 +411,6 @@ export default function RoomLobby() {
                 room={room}
                 onAccept={handleAccept}
                 onReject={handleReject}
-            />
-
-            <SosContactModal
-                visible={showContactModal}
-                initialContacts={tempContacts}
-                onConfirm={onConfirmContacts}
-                onCancel={() => setShowContactModal(false)}
             />
         </SafeAreaView>
     );

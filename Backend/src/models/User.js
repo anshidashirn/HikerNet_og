@@ -87,6 +87,10 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: "", // Salt used for PBKDF2
         },
+        treksCompleted: {
+            type: Number,
+            default: 0,
+        },
     },
     { timestamps: true }
 );
