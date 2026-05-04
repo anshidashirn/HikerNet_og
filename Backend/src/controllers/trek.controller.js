@@ -9,7 +9,7 @@ import { discoverTreks, getTrekDetails } from "../lib/trekDiscoveryService.js";
 
 export const startTrek = async (req, res) => {
     try {
-        const { name, description, location } = req.body;
+        const { name, description, location, emergencyContacts } = req.body;
         const trek = new Trek({
             user: req.user._id,
             name: name || "Untitled Trek",
@@ -17,7 +17,8 @@ export const startTrek = async (req, res) => {
             location,
             privacy: "public",
             status: "ongoing",
-            startTime: new Date()
+            startTime: new Date(),
+            emergencyContacts: emergencyContacts ? [{ user: req.user._id, contacts: emergencyContacts }] : []
         });
 
         await trek.save();
@@ -187,6 +188,28 @@ export const deleteTrek = async (req, res) => {
     }
 };
 
+export const registerSosContacts = async (req, res) => {
+    try {
+        const { trekId, emergencyContacts } = req.body;
+        const trek = await Trek.findById(trekId);
+        if (!trek) return res.status(404).json({ message: "Trek not found" });
+
+        // Update or add contacts for this user
+        const existingIdx = trek.emergencyContacts.findIndex(ec => ec.user.toString() === req.user._id.toString());
+        if (existingIdx !== -1) {
+            trek.emergencyContacts[existingIdx].contacts = emergencyContacts;
+        } else {
+            trek.emergencyContacts.push({ user: req.user._id, contacts: emergencyContacts });
+        }
+
+        await trek.save();
+        res.json({ message: "SOS contacts registered for this trek" });
+    } catch (error) {
+        console.error("Error registering SOS contacts:", error);
+        res.status(500).json({ message: "Error registering SOS contacts" });
+    }
+};
+
 export const getTrekById = async (req, res) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -293,6 +316,7 @@ function handleStatusUpdate(trek, status) {
         trek.status = status;
         if (status === "completed") {
             trek.endTime = new Date();
+            trek.emergencyContacts = []; // Clear emergency contacts when trek is finished
         }
     }
 }

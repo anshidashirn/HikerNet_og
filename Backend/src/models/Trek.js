@@ -93,6 +93,17 @@ const trekSchema = new mongoose.Schema(
         endTime: {
             type: Date,
         },
+        emergencyContacts: [
+            {
+                user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                contacts: [
+                    {
+                        name: { type: String, required: true },
+                        phoneNumber: { type: String, required: true }
+                    }
+                ]
+            }
+        ],
     },
     { timestamps: true }
 );

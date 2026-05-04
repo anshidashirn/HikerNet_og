@@ -14,11 +14,13 @@ import TrekControls from './_components/TrekControls';
 import MarkerModal from './_components/MarkerModal';
 import PinDetailsModal from './_components/PinDetailsModal';
 import RestModal from './_components/RestModal';
+import SosModal from './_components/SosModal';
 import WeatherWidget from '../../components/WeatherWidget';
 
 // Orchestrator Hook and Data Layer
 import { useTrekSession } from './_hooks/useTrekSession';
 import { useRestMode } from './_hooks/useRestMode';
+import { useSosAlert } from './_hooks/useSosAlert';
 import { ACTIONS } from './_utils/constants';
 
 export default function SoloTrek() {
@@ -58,6 +60,8 @@ export default function SoloTrek() {
     const [iconSearchQuery, setIconSearchQuery] = useState('');
     const [waypointImages, setWaypointImages] = useState([]);
     const [selectedPinDetails, setSelectedPinDetails] = useState(null);
+
+    const { showSosPrompt, sosTimer, cancelSosPrompt } = useSosAlert(state.location, isResting, params);
 
     const handleRestSelect = (minutes) => {
         startRest(minutes);
@@ -302,6 +306,12 @@ export default function SoloTrek() {
                 visible={!!selectedPinDetails}
                 onClose={() => setSelectedPinDetails(null)}
                 selectedPinDetails={selectedPinDetails}
+            />
+
+            <SosModal
+                visible={showSosPrompt}
+                timer={sosTimer}
+                onCancel={cancelSosPrompt}
             />
         </View>
     );

@@ -7,6 +7,7 @@ import client from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import UserListModal from '../../components/UserListModal';
 import RequestsModal from '../../components/RequestsModal';
+import SosContactModal from './_components/SosContactModal';
 
 export default function RoomLobby() {
     const router = useRouter();
@@ -24,6 +25,9 @@ export default function RoomLobby() {
 
     // Polling Ref
     const pollingRef = useRef(null);
+    const [showContactModal, setShowContactModal] = useState(false);
+    const [tempContacts, setTempContacts] = useState(null);
+    const [pendingAction, setPendingAction] = useState(null);
 
     useEffect(() => {
         fetchRoom();
@@ -90,7 +94,8 @@ export default function RoomLobby() {
                         trailId: data.trekId,
                         mode: 'group',
                         role: role, // Use current role
-                        leaderId: data.leader?._id
+                        leaderId: data.leader?._id,
+                        emergencyContacts: tempContacts ? JSON.stringify(tempContacts) : null
                     }
                 });
             }
@@ -161,13 +166,22 @@ export default function RoomLobby() {
             return;
         }
 
-        try {
-            const me = room.members.find(m => m.user._id === currentUser._id);
-            if (!me) return;
+        const me = room.members.find(m => m.user._id === currentUser._id);
+        if (!me) return;
 
+        if (!me.isReady) {
+            setPendingAction('ready');
+            setShowContactModal(true);
+        } else {
+            executeToggleReady(false);
+        }
+    };
+
+    const executeToggleReady = async (isReady) => {
+        try {
             await client.post('/rooms/ready', {
                 roomId,
-                isReady: !me.isReady
+                isReady
             });
             fetchRoom();
         } catch (error) {
@@ -176,14 +190,19 @@ export default function RoomLobby() {
     };
 
     const handleStartTrail = async () => {
-        try {
-            const allReady = room.members.every(m => m.isReady);
-            if (!allReady) {
-                Alert.alert("Wait!", "Not all members are ready.");
-                return;
-            }
+        const allReady = room.members.every(m => m.isReady);
+        if (!allReady) {
+            Alert.alert("Wait!", "Not all members are ready.");
+            return;
+        }
 
-            const res = await client.post('/rooms/start', { roomId });
+        setPendingAction('start');
+        setShowContactModal(true);
+    };
+
+    const executeStartTrail = async (selectedContacts) => {
+        try {
+            const res = await client.post('/rooms/start', { roomId, emergencyContacts: selectedContacts });
             const { trekId } = res.data;
 
             if (pollingRef.current) clearInterval(pollingRef.current);
@@ -193,12 +212,23 @@ export default function RoomLobby() {
                     trailId: trekId,
                     mode: 'group',
                     role: 'leader',
-                    leaderId: currentUser?._id
+                    leaderId: currentUser?._id,
+                    emergencyContacts: JSON.stringify(selectedContacts)
                 }
             });
         } catch (error) {
             console.error(error);
             Alert.alert("Error", error.response?.data?.message || "Failed to start trail");
+        }
+    };
+
+    const onConfirmContacts = (selectedContacts) => {
+        setTempContacts(selectedContacts);
+        setShowContactModal(false);
+        if (pendingAction === 'start') {
+            executeStartTrail(selectedContacts);
+        } else if (pendingAction === 'ready') {
+            executeToggleReady(true);
         }
     };
 
@@ -408,6 +438,13 @@ export default function RoomLobby() {
                 room={room}
                 onAccept={handleAccept}
                 onReject={handleReject}
+            />
+
+            <SosContactModal
+                visible={showContactModal}
+                initialContacts={tempContacts}
+                onConfirm={onConfirmContacts}
+                onCancel={() => setShowContactModal(false)}
             />
         </SafeAreaView>
     );

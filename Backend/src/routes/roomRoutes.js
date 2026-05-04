@@ -377,7 +377,7 @@ router.post("/ready", protectRoute, async (req, res) => {
 // Start Trek (Leader)
 router.post("/start", protectRoute, async (req, res) => {
     try {
-        const { roomId } = req.body;
+        const { roomId, emergencyContacts } = req.body;
         const room = await Room.findById(roomId);
         if (!room) return res.status(404).json({ message: "Room not found" });
 
@@ -407,7 +407,8 @@ router.post("/start", protectRoute, async (req, res) => {
             location: room.startLocation || "Unknown",
             mode: "group",
             participants: room.members.map(m => m.user), // Assuming Trek model has participants field (need to check/add)
-            status: "ongoing"
+            status: "ongoing",
+            emergencyContacts: emergencyContacts ? [{ user: req.user._id, contacts: emergencyContacts }] : []
         });
 
         await newTrek.save();

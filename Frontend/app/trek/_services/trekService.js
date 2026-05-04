@@ -16,6 +16,11 @@ export const TrekService = {
     return res.data;
   },
 
+  registerSosContacts: async (data) => {
+    const res = await client.post('/treks/register-sos-contacts', data);
+    return res.data;
+  },
+
   createPost: async (postData) => {
     const res = await client.post('/posts/create', postData);
     return res.data;

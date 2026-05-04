@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import { getTrailImage } from '../../utils/imageUtils';
 import NativeMap, { Polyline, Marker } from '../../components/NativeMap';
 import PathPreviewMap from './_components/PathPreviewMap';
+import SosContactModal from './_components/SosContactModal';
 
 const MARKER_ICONS = [
     { name: 'water', icon: 'water', color: '#007bff', label: 'Water' },
@@ -33,6 +35,9 @@ export default function TrailDetailsScreen() {
     const [trail, setTrail] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const isOSM = id?.startsWith('osm-');
+    const { user } = useAuth();
+    const [showContactModal, setShowContactModal] = useState(false);
+    const [pendingMode, setPendingMode] = useState(null);
 
     useEffect(() => {
         if (id) {
@@ -92,11 +97,18 @@ export default function TrailDetailsScreen() {
     };
 
     const handleStart = (mode) => {
+        setPendingMode(mode);
+        setShowContactModal(true);
+    };
+
+    const onConfirmContacts = (selectedContacts) => {
+        setShowContactModal(false);
         router.push({
             pathname: '/trek/active-trek',
             params: {
                 trailId: id,
-                mode
+                mode: pendingMode,
+                emergencyContacts: JSON.stringify(selectedContacts)
             }
         });
     };
@@ -257,6 +269,13 @@ export default function TrailDetailsScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            <SosContactModal
+                visible={showContactModal}
+                initialContacts={null}
+                onConfirm={onConfirmContacts}
+                onCancel={() => setShowContactModal(false)}
+            />
         </ScrollView>
     );
 }

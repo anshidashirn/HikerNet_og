@@ -4,10 +4,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../../api/client';
 import SafeScreen from '../../components/SafeScreen';
+import { useAuth } from '../../context/AuthContext';
 
 export default function GroupMenu() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { user } = useAuth();
     const [joinCode, setJoinCode] = useState('');
     const [isJoining, setIsJoining] = useState(false);
 

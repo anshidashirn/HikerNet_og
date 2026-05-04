@@ -15,6 +15,7 @@ import TrekControls from './_components/TrekControls';
 import MarkerModal from './_components/MarkerModal';
 import PinDetailsModal from './_components/PinDetailsModal';
 import RestModal from './_components/RestModal';
+import SosModal from './_components/SosModal';
 import WeatherWidget from '../../components/WeatherWidget';
 
 // Logic & API
@@ -24,6 +25,7 @@ import { useSmartLocation } from '../../hooks/useSmartLocation';
 import { useCompass } from '../../hooks/useCompass';
 import { useGroupSync } from '../../hooks/useGroupSync';
 import { useRestMode } from './_hooks/useRestMode';
+import { useSosAlert } from './_hooks/useSosAlert';
 import { getDistance, getPointToPathDistance } from '../../utils/geoUtils';
 import { detectIntersectionLoop } from '../../utils/trekUtils';
 
@@ -126,6 +128,30 @@ export default function GroupTrek() {
         startRest,
         endRest
     } = useRestMode(smoothedLocation);
+
+    const { showSosPrompt, sosTimer, cancelSosPrompt } = useSosAlert(smoothedLocation, isResting, params);
+
+    // Register SOS contacts for this specific session
+    useEffect(() => {
+        if (trailId && params.emergencyContacts) {
+            const registerContacts = async () => {
+                try {
+                    let contacts = params.emergencyContacts;
+                    if (typeof contacts === 'string') {
+                        contacts = JSON.parse(contacts);
+                    }
+                    
+                    await client.post('/treks/register-sos-contacts', {
+                        trekId: trailId,
+                        emergencyContacts: contacts
+                    });
+                } catch (e) {
+                    console.error("Failed to register SOS contacts for this trek", e);
+                }
+            };
+            registerContacts();
+        }
+    }, [trailId, params.emergencyContacts]);
 
     // Show persistent group message (e.g. member left)
     const showMessage = (msg, duration = 5000, type = 'info') => {
@@ -624,6 +650,12 @@ export default function GroupTrek() {
                 visible={!!selectedPinDetails}
                 onClose={() => setSelectedPinDetails(null)}
                 selectedPinDetails={selectedPinDetails}
+            />
+
+            <SosModal
+                visible={showSosPrompt}
+                timer={sosTimer}
+                onCancel={cancelSosPrompt}
             />
 
             {/* FAB for Marker */}

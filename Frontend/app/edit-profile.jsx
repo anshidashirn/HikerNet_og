@@ -15,7 +15,6 @@ export default function EditProfile() {
     const [username, setUsername] = useState(user?.username || '');
     const [bio, setBio] = useState(user?.bio || '');
     const [profileImage, setProfileImage] = useState(user?.profileImage || '');
-    const [emergencyContacts, setEmergencyContacts] = useState(user?.emergencyContacts || []);
     const [medicalInfo, setMedicalInfo] = useState(user?.medicalInfo || '');
     const [location, setLocation] = useState(user?.location || '');
     const [uploading, setUploading] = useState(false);
@@ -26,7 +25,6 @@ export default function EditProfile() {
             const res = await client.put('/users/profile', {
                 username,
                 bio,
-                emergencyContacts,
                 medicalInfo,
                 location,
             });
@@ -71,19 +69,7 @@ export default function EditProfile() {
         }
     };
 
-    const addEmergencyContact = () => {
-        setEmergencyContacts([...emergencyContacts, { name: '', phoneNumber: '' }]);
-    };
 
-    const updateContact = (index, field, value) => {
-        const updated = [...emergencyContacts];
-        updated[index][field] = value;
-        setEmergencyContacts(updated);
-    };
-
-    const removeContact = (index) => {
-        setEmergencyContacts(emergencyContacts.filter((_, i) => i !== index));
-    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -150,45 +136,7 @@ export default function EditProfile() {
                     />
                 </View>
 
-                <View style={styles.divider} />
 
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-                    <TouchableOpacity onPress={addEmergencyContact} style={styles.addButton}>
-                        <Ionicons name="add-circle" size={24} color="#4A7C44" />
-                        <Text style={styles.addButtonText}>Add Contact</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {emergencyContacts.map((contact, index) => (
-                    <View key={index} style={styles.contactItem}>
-                        <View style={styles.contactInputs}>
-                            <TextInput
-                                style={styles.contactInput}
-                                value={contact.name}
-                                onChangeText={(val) => updateContact(index, 'name', val)}
-                                placeholder="Contact Name"
-                            />
-                            <TextInput
-                                style={styles.contactInput}
-                                value={contact.phoneNumber}
-                                onChangeText={(val) => updateContact(index, 'phoneNumber', val)}
-                                placeholder="Phone Number"
-                                keyboardType="phone-pad"
-                            />
-                        </View>
-                        <TouchableOpacity onPress={() => removeContact(index)} style={styles.removeButton}>
-                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                        </TouchableOpacity>
-                    </View>
-                ))}
-
-                <View style={styles.safetyInfo}>
-                    <Ionicons name="shield-checkmark-outline" size={20} color="#666" />
-                    <Text style={styles.safetyText}>
-                        Your emergency contacts will be notified automatically if an emergency alert is triggered during a trail.
-                    </Text>
-                </View>
 
                 <View style={{ height: 50 }} />
             </ScrollView>

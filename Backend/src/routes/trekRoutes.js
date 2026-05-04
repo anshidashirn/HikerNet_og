@@ -34,6 +34,9 @@ router.get("/:id", trekController.getTrekById);
 // Sync offline data (Bulk upload of treks)
 router.post("/sync", protectRoute, trekController.syncTreks);
 
+// Register SOS contacts for active trek
+router.post("/register-sos-contacts", protectRoute, trekController.registerSosContacts);
+
 // Delete a trek
 router.delete("/:id", protectRoute, trekController.deleteTrek);
 

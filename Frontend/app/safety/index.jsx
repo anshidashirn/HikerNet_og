@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, FlatList, Modal, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../../api/client';
@@ -20,12 +21,12 @@ export default function SafetyCenter() {
 
     const fetchContacts = async () => {
         try {
-            const res = await client.get('/users/profile/me'); // We need an endpoint or use AuthContext
-            // Assuming AuthContext handles user data, but backend check is better for fresh data
-            // For now, let's assume we can get it from a profile endpoint
-            // Actually, let's just use a dummy fetch or AuthContext if available
-            // Let's implement an actual fetch if the endpoint exists
-            setContacts(res.data.emergencyContacts || []);
+            const saved = await AsyncStorage.getItem('recent_sos_contacts');
+            if (saved) {
+                setContacts(JSON.parse(saved));
+            } else {
+                setContacts([]);
+            }
         } catch (error) {
             console.error('Error fetching contacts:', error);
         } finally {
@@ -40,12 +41,9 @@ export default function SafetyCenter() {
         }
 
         try {
-            // We need a backend route to update user profile/contacts
-            // Let's assume PUT /api/users/profile exists for this purpose
-            const res = await client.put('/users/profile', {
-                emergencyContacts: [...contacts, newContact]
-            });
-            setContacts(res.data.emergencyContacts);
+            const updatedContacts = [...contacts, { ...newContact, _id: Date.now().toString() }];
+            await AsyncStorage.setItem('recent_sos_contacts', JSON.stringify(updatedContacts));
+            setContacts(updatedContacts);
             setModalVisible(false);
             setNewContact({ name: '', phoneNumber: '', email: '' });
         } catch (error) {
@@ -57,10 +55,8 @@ export default function SafetyCenter() {
     const handleDeleteContact = async (contactId) => {
         try {
             const updatedContacts = contacts.filter(c => c._id !== contactId);
-            const res = await client.put('/users/profile', {
-                emergencyContacts: updatedContacts
-            });
-            setContacts(res.data.emergencyContacts);
+            await AsyncStorage.setItem('recent_sos_contacts', JSON.stringify(updatedContacts));
+            setContacts(updatedContacts);
         } catch (error) {
             console.error('Error deleting contact:', error);
             Alert.alert('Error', 'Failed to delete contact');

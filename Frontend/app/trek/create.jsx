@@ -4,16 +4,21 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import SafeScreen from '../../components/SafeScreen';
+import { useAuth } from '../../context/AuthContext';
+import SosContactModal from './_components/SosContactModal';
 
 export default function CreateTrailScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { user } = useAuth();
 
     // Initialize with searchQuery if available
     const [name, setName] = useState(params.initialName || '');
     const [description, setDescription] = useState('');
     const [locationName, setLocationName] = useState('Detecting location...');
     const [isLocating, setIsLocating] = useState(true);
+    const [showContactModal, setShowContactModal] = useState(false);
+    const [isSimulatePending, setIsSimulatePending] = useState(false);
 
     useEffect(() => {
         detectLocation();
@@ -86,14 +91,21 @@ export default function CreateTrailScreen() {
             return;
         }
 
+        setIsSimulatePending(simulate);
+        setShowContactModal(true);
+    };
+
+    const onConfirmContacts = (selectedContacts) => {
+        setShowContactModal(false);
         router.push({
             pathname: '/trek/active-trek',
             params: {
-                name: simulate ? "Test Simulation" : name,
-                description: simulate ? "Automated test tour" : description,
+                name: isSimulatePending ? "Test Simulation" : name,
+                description: isSimulatePending ? "Automated test tour" : description,
                 location: locationName,
-                mode,
-                simulate: simulate ? 'true' : 'false'
+                mode: 'solo',
+                simulate: isSimulatePending ? 'true' : 'false',
+                emergencyContacts: JSON.stringify(selectedContacts)
             }
         });
     };
@@ -165,14 +177,16 @@ export default function CreateTrailScreen() {
 
                         <TouchableOpacity
                             style={[styles.actionButton, styles.groupButton]}
-                            onPress={() => router.push({
-                                pathname: '/trek/group-menu',
-                                params: {
-                                    name,
-                                    description,
-                                    location: locationName
-                                }
-                            })}
+                            onPress={() => {
+                                router.push({
+                                    pathname: '/trek/group-menu',
+                                    params: {
+                                        name,
+                                        description,
+                                        location: locationName
+                                    }
+                                });
+                            }}
                         >
                             <Ionicons name="people" size={24} color="white" />
                             <View style={styles.buttonContent}>
@@ -181,8 +195,9 @@ export default function CreateTrailScreen() {
                             </View>
                         </TouchableOpacity>
 
+                        {/* Hidden as requested: Simulate Trek Button */}
                         <TouchableOpacity
-                            style={[styles.actionButton, styles.simButton]}
+                            style={[styles.actionButton, styles.simButton, { display: 'none' }]}
                             onPress={() => handleStart('solo', true)}
                         >
                             <Ionicons name="flask" size={24} color="white" />
@@ -194,6 +209,13 @@ export default function CreateTrailScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            <SosContactModal
+                visible={showContactModal}
+                initialContacts={null}
+                onConfirm={onConfirmContacts}
+                onCancel={() => setShowContactModal(false)}
+            />
         </SafeScreen>
     );
 }

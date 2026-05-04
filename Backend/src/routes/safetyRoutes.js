@@ -1,26 +1,63 @@
 import express from "express";
 import User from "../models/User.js";
+import Trek from "../models/Trek.js";
 import Notification from "../models/Notification.js";
 import protectRoute from "../middleware/auth.middleware.js";
+import SmsService from "../services/smsService.js";
 
 const router = express.Router();
 
 // Trigger SOS Alert
 router.post("/sos", protectRoute, async (req, res) => {
     try {
-        const { location } = req.body; // { lat, lng }
+        const { location, customContacts } = req.body; // { lat, lng }
         const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: "User not found" });
 
-        if (!user.emergencyContacts || user.emergencyContacts.length === 0) {
-            return res.status(400).json({ message: "No emergency contacts found" });
+        let contacts = customContacts;
+ 
+        if (!contacts || (Array.isArray(contacts) && contacts.length === 0)) {
+            console.log(`[SOS] No contacts provided or empty list, searching active trek for user: ${req.user._id}`);
+            // Check active trek for this user
+            const activeTrek = await Trek.findOne({ 
+                status: "ongoing", 
+                $or: [{ user: req.user._id }, { participants: req.user._id }] 
+            });
+
+            if (activeTrek && activeTrek.emergencyContacts) {
+                console.log(`[SOS] Found active trek: ${activeTrek._id}`);
+                const userContacts = activeTrek.emergencyContacts.find(ec => ec.user && ec.user.toString() === req.user._id.toString());
+                if (userContacts) {
+                    contacts = userContacts.contacts;
+                    console.log(`[SOS] Found trek-specific contacts for user`);
+                } else {
+                    console.log(`[SOS] No contacts registered for this user in trek ${activeTrek._id}`);
+                }
+            } else if (activeTrek) {
+                 console.log(`[SOS] Active trek found but emergencyContacts field is missing/empty`);
+            } else {
+                console.log(`[SOS] No ongoing trek found for user: ${req.user._id}`);
+            }
         }
 
-        // Logic to send SMS/Email would go here (Twilio/SendGrid)
-        // For now, we simulate by creating notifications for system admins or friends if we had that link
-        // We will just log it and return success for the POC.
+        if (!contacts || !Array.isArray(contacts) || contacts.length < 2) {
+            console.log(`[SOS] Failed to find sufficient contacts (found: ${contacts?.length || 0})`);
+            return res.status(400).json({ message: "Minimum 2 emergency contacts required" });
+        }
 
-        console.log(`SOS ALERT triggered by ${user.username} at ${JSON.stringify(location)}`);
-        console.log(`Notifying contacts: ${JSON.stringify(user.emergencyContacts)}`);
+        const messageText = `SOS: This user (${user.username}) is in trouble! Last known coordinates: Latitude ${location?.latitude || 'Unknown'}, Longitude ${location?.longitude || 'Unknown'}. Please contact them immediately.`;
+
+        // Broadcast SMS via SmsService
+        try {
+            await SmsService.broadcastSos(contacts, user, location);
+        } catch (smsError) {
+            console.error("[SOS] SmsService Error:", smsError);
+            // We continue because we still want to create the notification
+        }
+
+        console.log(`SOS ALERT triggered by ${user.username}`);
+        console.log(`Notifying contacts: ${JSON.stringify(contacts)}`);
+        console.log(`SOS Message Sent: ${messageText}`);
 
         // Create a local notification for the user confirming it was sent
         await Notification.create({

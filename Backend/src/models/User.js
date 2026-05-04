@@ -42,13 +42,6 @@ const userSchema = new mongoose.Schema(
                 ref: "User",
             },
         ],
-        emergencyContacts: [
-            {
-                name: { type: String, required: true },
-                phoneNumber: { type: String, required: true },
-                email: { type: String },
-            }
-        ],
         expoPushToken: {
             type: String, // For notifications
         },

@@ -25,6 +25,28 @@ export function useTrekSession(params) {
         hasJoinedTrail: !params.uploadedTrailId && !params.trailId,
     });
 
+    // Register SOS contacts for this specific session
+    useEffect(() => {
+        const trailId = state.trailId || params.trailId;
+        if (trailId && params.emergencyContacts && trailId !== 'sim-session') {
+            const registerContacts = async () => {
+                try {
+                    let contacts = params.emergencyContacts;
+                    if (typeof contacts === 'string') {
+                        contacts = JSON.parse(contacts);
+                    }
+                    await TrekService.registerSosContacts({
+                        trekId: trailId,
+                        emergencyContacts: contacts
+                    });
+                } catch (e) {
+                    console.error("Failed to register SOS contacts for this trek", e);
+                }
+            };
+            registerContacts();
+        }
+    }, [state.trailId, params.trailId, params.emergencyContacts]);
+
     const mapRef = useRef(null);
 
     // 1. Unified Location Logic
@@ -171,7 +193,8 @@ export function useTrekSession(params) {
                     name: params.name || `New Trail ${new Date().toLocaleDateString()}`,
                     description: params.description || '',
                     location: params.location || '',
-                    mode: 'solo'
+                    mode: 'solo',
+                    emergencyContacts: params.emergencyContacts ? JSON.parse(params.emergencyContacts) : null
                 });
                 trekId = data._id;
                 startName = data.name;
